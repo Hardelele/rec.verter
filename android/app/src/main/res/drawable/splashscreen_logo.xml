@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Иконка на splash-экране. Геометрия — та же, что в assets/icon.svg и в
+  ic_launcher_foreground.xml, пути скопированы без пересчёта.
+
+  Отличие от иконки лаунчера — нет тёмной подложки #12263A. В лаунчере она
+  нужна: обои произвольные, и белый треугольник без подложки пропадёт. На
+  splash фон известен и равен фону приложения, поэтому подложка только мешала
+  бы — на светлой теме это тёмный квадрат посреди белого, на тёмной он сливался
+  бы с фоном и оставлял глиф висеть в воздухе.
+
+  Вместо подложки цвет треугольника берётся из темы: @color/splashscreen_glyph
+  — тёмный днём, светлый ночью. Дуги остаются фирменными: #35C4F0 различим и на
+  #FFFFFF, и на #0E0F12.
+
+  Вектор, а не пять плотностей PNG: одна геометрия вместо пяти растров, и
+  перекрасить её темой можно только так.
+
+  Система координат 108×108 — как у адаптивной иконки; графика умещается в круг
+  радиуса 36 вокруг (54, 54), поэтому круглая маска системного splash-экрана
+  (Android 12+) ничего не срезает.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <path
+        android:pathData="M30,35 L30,73 L54,54 Z"
+        android:fillColor="@color/splashscreen_glyph"
+        android:strokeColor="@color/splashscreen_glyph"
+        android:strokeWidth="6"
+        android:strokeLineJoin="round" />
+
+    <path
+        android:pathData="M61.79,47.11 A9,9 0 0 1 61.79,60.89"
+        android:strokeColor="#35C4F0"
+        android:strokeWidth="5"
+        android:strokeLineCap="round" />
+    <path
+        android:pathData="M67.25,40.59 A17.5,17.5 0 0 1 67.25,67.41"
+        android:strokeColor="#35C4F0"
+        android:strokeWidth="5"
+        android:strokeLineCap="round" />
+    <path
+        android:pathData="M72.71,34.08 A26,26 0 0 1 72.71,73.92"
+        android:strokeColor="#35C4F0"
+        android:strokeWidth="5"
+        android:strokeLineCap="round" />
+</vector>

@@ -4,8 +4,19 @@
     <item name="colorPrimary">@color/colorPrimary</item>
     <item name="android:statusBarColor">@android:color/transparent</item>
     <item name="android:navigationBarColor">@android:color/transparent</item>
+    <!-- MainActivity переключается на AppTheme в onCreate, а первый кадр React
+         Native приходит позже. Без этой строки в промежутке видно
+         windowBackground из Theme.AppCompat — #303030, ни на что в палитре не
+         похожий: белая вспышка сменялась серой. -->
+    <item name="android:windowBackground">@color/splashscreen_background</item>
   </style>
   <style name="Theme.App.SplashScreen" parent="AppTheme">
-    <item name="android:windowBackground">@drawable/splashscreen_logo</item>
+    <item name="android:windowBackground">@drawable/splashscreen</item>
+    <!-- Android 12+ рисует splash сам и windowBackground для этого не читает:
+         цвет и иконку он берёт отсюда. Без этих двух строк системный splash
+         подставляет иконку лаунчера на цвете темы, и ночью экран оставался
+         белым. -->
+    <item name="android:windowSplashScreenBackground" tools:targetApi="s">@color/splashscreen_background</item>
+    <item name="android:windowSplashScreenAnimatedIcon" tools:targetApi="s">@drawable/splashscreen_logo</item>
   </style>
 </resources>

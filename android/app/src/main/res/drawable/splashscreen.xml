@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Окно приложения до первого кадра React Native: фон темы плюс иконка по центру.
+  Оба слоя — ресурсы с ночным вариантом, поэтому в тёмной теме экран сразу
+  тёмный.
+
+  Начиная с Android 12 системный splash рисуется сам и берёт цвет и иконку из
+  атрибутов windowSplashScreen* (см. styles.xml). Этот drawable остаётся для
+  API 26–30 и на всякий случай — как windowBackground самой активности.
+-->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+  <item android:drawable="@color/splashscreen_background"/>
+  <item
+      android:drawable="@drawable/splashscreen_logo"
+      android:gravity="center"
+      android:width="144dp"
+      android:height="144dp"/>
+</layer-list>
