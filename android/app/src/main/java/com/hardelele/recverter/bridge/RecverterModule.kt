@@ -28,16 +28,20 @@ class RecverterModule(
 
     private val worker = Executors.newSingleThreadExecutor()
     private val cancelled = AtomicBoolean(false)
+    private val picker = SourcePicker(context)
 
     override fun getName(): String = NAME
 
     override fun initialize() {
         super.initialize()
         ShareIntake.setListener { uris -> emitShare(uris) }
+        context.addActivityEventListener(picker)
     }
 
     override fun invalidate() {
         ShareIntake.setListener(null)
+        context.removeActivityEventListener(picker)
+        picker.release()
         cancelled.set(true)
         worker.shutdownNow()
         super.invalidate()
@@ -82,6 +86,20 @@ class RecverterModule(
         val held = ShareIntake.take()
         val uris = held.ifEmpty { ShareIntake.urisOf(context.currentActivity?.intent) }
         promise.resolve(uris.firstOrNull()?.let(::sharedSource))
+    }
+
+    /**
+     * Тот же объект, что приходит из share sheet, только источник — системный выбор.
+     * Отмена — не ошибка: промис завершается `null`, и экран остаётся как был.
+     */
+    @ReactMethod
+    fun pickSource(promise: Promise) {
+        val launched = picker.pick { uri ->
+            promise.resolve(uri?.let { sharedSource(it.toString()) })
+        }
+        if (!launched) {
+            promise.reject(PICKER_UNAVAILABLE, "no activity or no document picker")
+        }
     }
 
     @ReactMethod
@@ -191,6 +209,13 @@ class RecverterModule(
         const val NAME = "Recverter"
         private const val EVENT_PROGRESS = "recverter:progress"
         private const val EVENT_SHARE = "recverter:share"
+
+        /**
+         * Код моста, а не media: слой конвертации о выборе файла ничего не знает.
+         * Означает «системный выбор открыть нечем», а не поломку файла.
+         */
+        private const val PICKER_UNAVAILABLE = "PICKER_UNAVAILABLE"
+
         private const val PROGRESS_INTERVAL_MS = 100L
     }
 }

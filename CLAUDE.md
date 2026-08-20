@@ -31,6 +31,8 @@ android/app/src/main/java/com/hardelele/recverter/
 │   ├── WavWriter.kt                     PCM → WAV
 │   └── Mp3Encoder.kt                    PCM → MP3 через LAME (появится позже)
 └── bridge/                              ReactContextBaseJavaModule: только преобразование типов
+    ├── ShareIntake.kt                   файл, пришедший из «Поделиться»
+    └── SourcePicker.kt                  системный выбор файла: запуск интента и URI
 ```
 
 **`media/` не импортирует ничего из React Native.** Это не эстетика: слой должен
@@ -60,6 +62,29 @@ convert(sourceUri: string, format: 'm4a' | 'wav' | 'mp3', options?: {
   sizeBytes: number
 }>
 ```
+
+Файл в приложение попадает двумя путями, и оба дают один и тот же объект:
+
+```ts
+getInitialShare(): Promise<SharedSource | null>   // файл из «Поделиться»
+pickSource(): Promise<SharedSource | null>        // системный выбор изнутри приложения
+
+type SharedSource = { uri: string; name: string; sizeBytes?: number; mimeType?: string }
+```
+
+`pickSource()` открывает `ACTION_OPEN_DOCUMENT` с типами `video/*` и `audio/*`.
+Photo Picker (`ACTION_PICK_IMAGES`) не взят: он показывает только медиатеку, то есть
+теряет произвольные аудиофайлы и загрузки, и не выдаёт persistable-доступ. Разрешений
+`ACTION_OPEN_DOCUMENT` не требует — доступ выдаёт сам человек, выбрав файл; список
+разрешений в манифесте от появления пикера не изменился.
+
+**Отмена выбора — не ошибка**: промис завершается `null`, а не отклонением, иначе
+экран показывает красную плашку там, где человек просто передумал. Отклонение здесь
+одно — `PICKER_UNAVAILABLE`: открыть системный выбор нечем.
+
+На выбранном URI берётся `takePersistableUriPermission`, поэтому файл переживает
+сворачивание приложения; провайдеру разрешено persistable-доступ не выдать, и тогда
+хватает метаданных, прочитанных сразу.
 
 `displayName` возвращается потому, что запрошенное имя и записанное — разные вещи:
 при совпадении MediaStore сам дописывает « (1)». Интерфейс показывает это поле,
