@@ -1,0 +1,38 @@
+# dependencies
+node_modules/
+
+# expo
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# native projects (генерируются через expo prebuild)
+/android
+/ios
+
+# сборки
+*.apk
+*.aab
+*.ipa
+
+# среда
+.env
+.env.local
+*.keystore
+!debug.keystore
+
+# логи
+npm-debug.*
+yarn-error.*
+*.log
+
+# ОС и редакторы
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# агентские артефакты
+.claude/tmp/

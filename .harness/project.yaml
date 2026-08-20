@@ -1,0 +1,28 @@
+# Привязка репозитория к трекеру задач. Читается агентами и людьми, чтобы вопрос
+# «куда регистрировать найденное» не возникал заново каждую сессию.
+#
+# Токенов здесь нет и быть не должно: доступ к API — из ops-секрета
+# (secrets/projects/openproject.sops.yaml, поле api_token).
+schema: 1
+
+project:
+  id: 12
+  name: Scribe
+
+repository:
+  root: .
+  remote: git@github.com:Hardelele/rec.verter.git
+
+openproject:
+  url: https://openproject.reckue.com
+  identifier: scribe
+  default_type: Task
+  default_status: Очередь
+
+people:
+  - name: Владислав Лапшин
+    login: hardelele
+    role: владелец репозитория
+
+# Проект в трекере называется Scribe — это рабочее имя, под которым заведена
+# аналитика (задачи #221–#226). Продуктовое имя — rec.verter.
