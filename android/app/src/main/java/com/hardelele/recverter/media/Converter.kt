@@ -22,6 +22,7 @@ object Converter {
         val mimeType = when (normalized) {
             "m4a" -> "audio/mp4"
             "wav" -> "audio/wav"
+            "mp3" -> "audio/mpeg"
             else -> throw MediaError(MediaErrorCode.UNSUPPORTED_FORMAT, normalized)
         }
 
@@ -29,6 +30,7 @@ object Converter {
         try {
             val durationMs = when (normalized) {
                 "m4a" -> AudioExtractor.extractToM4a(context, source, temp, progress).durationMs
+                "mp3" -> decodeToMp3(context, source, temp, options, progress)
                 else -> decodeToWav(context, source, temp, options, progress)
             }
             progress.throwIfCancelled()
@@ -73,6 +75,44 @@ object Converter {
             throw ioErrorToMediaError(e)
         } finally {
             runCatching { writer?.close() }
+        }
+    }
+
+    /**
+     * Тот же конвейер, что и у WAV: [PcmDecoder] ничего не знает про приёмник, поэтому
+     * MP3 отличается только классом писателя. Прогресс и отмену считает декодер.
+     */
+    private fun decodeToMp3(
+        context: Context,
+        source: Uri,
+        target: File,
+        options: ConvertOptions,
+        progress: ProgressSink,
+    ): Long {
+        var encoder: Mp3Encoder? = null
+        try {
+            PcmDecoder.decode(
+                context,
+                source,
+                options,
+                object : PcmDecoder.Sink {
+                    override fun onFormat(sampleRate: Int, channels: Int) {
+                        encoder = Mp3Encoder(target, sampleRate, channels, options.bitrateKbps)
+                    }
+
+                    override fun onPcm(data: ByteArray, size: Int) {
+                        encoder?.write(data, size)
+                    }
+                },
+                progress,
+            )
+            val written = encoder ?: throw MediaError(MediaErrorCode.CORRUPTED_SOURCE, "no pcm")
+            written.finish()
+            return written.durationMs
+        } catch (e: IOException) {
+            throw ioErrorToMediaError(e)
+        } finally {
+            runCatching { encoder?.close() }
         }
     }
 }
