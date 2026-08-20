@@ -1,5 +1,6 @@
 package com.hardelele.recverter.bridge
 
+import android.content.Intent
 import android.net.Uri
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.Promise
@@ -7,12 +8,14 @@ import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
 import com.facebook.react.bridge.ReadableMap
+import com.facebook.react.bridge.WritableMap
 import com.facebook.react.module.annotations.ReactModule
 import com.hardelele.recverter.media.ConvertOptions
 import com.hardelele.recverter.media.Converter
 import com.hardelele.recverter.media.MediaError
 import com.hardelele.recverter.media.MediaErrorCode
 import com.hardelele.recverter.media.ProgressSink
+import com.hardelele.recverter.media.SourceInfo
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -73,10 +76,28 @@ class RecverterModule(
 
     @ReactMethod
     fun getInitialShare(promise: Promise) {
-        val fromIntent = ShareIntake.urisOf(context.currentActivity?.intent)
         val held = ShareIntake.take()
-        val uris = if (held.isNotEmpty()) held else fromIntent
-        promise.resolve(Arguments.fromList(uris))
+        val uris = held.ifEmpty { ShareIntake.urisOf(context.currentActivity?.intent) }
+        promise.resolve(uris.firstOrNull()?.let(::sharedSource))
+    }
+
+    @ReactMethod
+    fun shareResult(path: String, mimeType: String, promise: Promise) {
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = mimeType
+            putExtra(Intent.EXTRA_STREAM, Uri.parse(path))
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        launch(Intent.createChooser(intent, null), promise)
+    }
+
+    @ReactMethod
+    fun openResult(path: String, mimeType: String, promise: Promise) {
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(Uri.parse(path), mimeType)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        launch(Intent.createChooser(intent, null), promise)
     }
 
     // NativeEventEmitter требует эти методы на модуле; подписка ведётся на стороне JS.
@@ -116,9 +137,33 @@ class RecverterModule(
     }
 
     private fun emitShare(uris: List<String>) {
-        emit(EVENT_SHARE, Arguments.createMap().apply {
-            putArray("uris", Arguments.fromList(uris))
-        })
+        val first = uris.firstOrNull() ?: return
+        emit(EVENT_SHARE, sharedSource(first))
+    }
+
+    /** Форма SharedSource из src/media/types.ts; несколько файлов сводятся к первому. */
+    private fun sharedSource(uri: String): WritableMap {
+        val info = SourceInfo.of(context, Uri.parse(uri))
+        return Arguments.createMap().apply {
+            putString("uri", info.uri)
+            putString("name", info.name)
+            info.sizeBytes?.let { putDouble("sizeBytes", it.toDouble()) }
+            info.mimeType?.let { putString("mimeType", it) }
+        }
+    }
+
+    private fun launch(intent: Intent, promise: Promise) {
+        val activity = context.currentActivity
+        try {
+            if (activity != null) {
+                activity.startActivity(intent)
+            } else {
+                context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            }
+            promise.resolve(null)
+        } catch (e: Throwable) {
+            promise.reject(MediaErrorCode.CORRUPTED_SOURCE.name, e.message, e)
+        }
     }
 
     private fun emit(event: String, payload: Any) {

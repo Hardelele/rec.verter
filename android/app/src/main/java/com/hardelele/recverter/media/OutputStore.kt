@@ -7,10 +7,11 @@ import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
-import android.provider.OpenableColumns
 import java.io.File
 import java.io.FileInputStream
 import java.io.IOException
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 
 /**
  * Готовый файл переносится в общую медиатеку, чтобы его видели плееры и «Поделиться».
@@ -21,6 +22,7 @@ object OutputStore {
 
     private const val FOLDER = "rec.verter"
     private const val COPY_BUFFER = 1 shl 16
+    private const val SCAN_TIMEOUT_SECONDS = 5L
 
     fun publish(context: Context, source: File, displayName: String, mimeType: String): String =
         try {
@@ -81,8 +83,20 @@ object OutputStore {
         FileInputStream(source).use { input ->
             target.outputStream().use { out -> input.copyTo(out, COPY_BUFFER) }
         }
-        MediaScannerConnection.scanFile(context, arrayOf(target.absolutePath), null, null)
-        return target.absolutePath
+        // Сканирование асинхронное, но результат нужен сразу: мост обязан вернуть
+        // content-URI, иначе «Поделиться» на Android 7+ упадёт на FileUriExposedException.
+        val scanned = arrayOfNulls<Uri>(1)
+        val done = CountDownLatch(1)
+        MediaScannerConnection.scanFile(
+            context,
+            arrayOf(target.absolutePath),
+            null,
+        ) { _, uri ->
+            scanned[0] = uri
+            done.countDown()
+        }
+        done.await(SCAN_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        return scanned[0]?.toString() ?: target.absolutePath
     }
 
     private fun unique(dir: File, displayName: String): File {
@@ -100,18 +114,8 @@ object OutputStore {
 
     /** Имя исходника без расширения — из него собирается имя результата. */
     fun sourceStem(context: Context, source: Uri): String {
-        val raw = queryDisplayName(context, source) ?: source.lastPathSegment
-        val name = raw?.substringAfterLast('/').orEmpty().substringBeforeLast('.')
+        val name = SourceInfo.of(context, source).name.substringBeforeLast('.')
         val clean = name.replace(Regex("[^\\p{L}\\p{N} ._-]"), "_").trim().take(80)
         return clean.ifEmpty { "audio-" + System.currentTimeMillis() }
     }
-
-    private fun queryDisplayName(context: Context, source: Uri): String? =
-        runCatching {
-            context.contentResolver
-                .query(source, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
-                ?.use { cursor ->
-                    if (cursor.moveToFirst() && !cursor.isNull(0)) cursor.getString(0) else null
-                }
-        }.getOrNull()
 }
