@@ -1,7 +1,7 @@
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, ScrollView, Text, View } from 'react-native';
 
 import { findFormat } from '../formats';
-import type { ConvertResult, SharedSource } from '../media';
+import { isSourceFatal, type ConvertResult, type SharedSource } from '../media';
 import { Body, Button, Card, Facts, Row, Title } from './controls';
 import { FormatList } from './FormatList';
 import { RESULT_LOCATION, formatDuration, formatSize, joinFacts } from './human';
@@ -18,26 +18,43 @@ function sourceFacts(source: SharedSource): string {
   return joinFacts([formatDuration(source.durationMs), formatSize(source.sizeBytes)]);
 }
 
+/** У результата к длительности и размеру добавляется место: это тоже факт о файле. */
 function resultFacts(result: ConvertResult): string {
-  return joinFacts([formatDuration(result.durationMs), formatSize(result.sizeBytes)]);
+  return joinFacts([
+    formatDuration(result.durationMs),
+    formatSize(result.sizeBytes),
+    RESULT_LOCATION,
+  ]);
+}
+
+/** Имя файла — самая крупная строка карточки: по нему человек и опознаёт файл. */
+function FileName({ children }: { children: string }) {
+  const theme = useTheme();
+  return (
+    <Text
+      numberOfLines={2}
+      style={{
+        color: theme.color.text,
+        fontFamily: theme.font.regular,
+        fontSize: 17,
+        fontWeight: '600',
+      }}>
+      {children}
+    </Text>
+  );
 }
 
 function SourceCard({ source }: { source: SharedSource }) {
-  const theme = useTheme();
   const facts = sourceFacts(source);
+  // Длительность провайдер отдаёт не всегда, а размер — почти всегда. Пояснение
+  // привязано к отсутствию длительности, а не к пустоте всей строки: иначе оно
+  // не показывается ровно в том случае, ради которого написано.
+  const durationUnknown = formatDuration(source.durationMs) === undefined;
   return (
     <Card>
-      <Text
-        numberOfLines={2}
-        style={{
-          color: theme.color.text,
-          fontFamily: theme.font.regular,
-          fontSize: 17,
-          fontWeight: '600',
-        }}>
-        {source.name}
-      </Text>
-      {facts ? <Facts>{facts}</Facts> : <Body tone="muted">Длительность станет известна при извлечении.</Body>}
+      <FileName>{source.name}</FileName>
+      {facts ? <Facts>{facts}</Facts> : null}
+      {durationUnknown ? <Body tone="muted">Длительность станет известна при извлечении.</Body> : null}
     </Card>
   );
 }
@@ -61,7 +78,8 @@ function Progress({ value }: { value?: number }) {
         style={{
           height: 6,
           borderRadius: 3,
-          backgroundColor: theme.color.border,
+          // Трек — не декорация: по нему видно, где у полосы конец.
+          backgroundColor: theme.color.borderStrong,
           overflow: 'hidden',
         }}>
         <View
@@ -72,12 +90,12 @@ function Progress({ value }: { value?: number }) {
           }}
         />
       </View>
-      <Facts>{`${Math.round(value * 100)} %`}</Facts>
+      <Facts mono>{`${Math.round(value * 100)} %`}</Facts>
     </View>
   );
 }
 
-function Step({ index, text }: { index: number; text: string }) {
+function Step({ index, text, muted }: { index: number; text: string; muted: boolean }) {
   const theme = useTheme();
   return (
     <View style={{ flexDirection: 'row', gap: theme.space(1.5), alignItems: 'flex-start' }}>
@@ -95,7 +113,7 @@ function Step({ index, text }: { index: number; text: string }) {
         {index}
       </Text>
       <View style={{ flex: 1 }}>
-        <Body>{text}</Body>
+        <Body tone={muted ? 'muted' : undefined}>{text}</Body>
       </View>
     </View>
   );
@@ -105,16 +123,23 @@ function Step({ index, text }: { index: number; text: string }) {
  * Путь через «Поделиться» никуда не делся: когда видео уже открыто в галерее
  * или в мессенджере, отдать его оттуда быстрее, чем искать в пикере. Поэтому
  * подсказка остаётся — но советом рядом с главным действием, а не вместо него.
+ *
+ * `muted` — это и есть «советом»: когда путь понижен в правах, приглушается
+ * весь блок целиком, а не одна подводка. Иначе понижённый путь набран самым
+ * тёмным цветом и занимает больше места, чем главная кнопка, и глаз идёт к
+ * нему первым. Кегль при этом не трогаем: подсказку читают, а не просматривают.
  */
 function ShareHint({ lead, muted }: { lead: string; muted: boolean }) {
   const theme = useTheme();
   return (
     <Card>
-      <Body tone={muted ? 'muted' : undefined}>{lead}</Body>
+      <Body tone={muted ? 'muted' : undefined} strong={!muted}>
+        {lead}
+      </Body>
       <View style={{ gap: theme.space(1), marginTop: theme.space(0.5) }}>
-        <Step index={1} text="Откройте видео в галерее, Telegram или файлах." />
-        <Step index={2} text="Нажмите «Поделиться»." />
-        <Step index={3} text="Выберите rec.verter в списке приложений." />
+        <Step muted={muted} index={1} text="Откройте видео в галерее, Telegram или файлах." />
+        <Step muted={muted} index={2} text="Нажмите «Поделиться»." />
+        <Step muted={muted} index={3} text="Выберите rec.verter в списке приложений." />
       </View>
     </Card>
   );
@@ -135,7 +160,14 @@ export function Screen() {
     share,
     open,
     retry,
+    clear,
   } = useConverter();
+
+  // Код ошибки решает, какое действие вообще имеет смысл предлагать.
+  const errorCode = state.kind === 'error' ? state.code : undefined;
+  const fatalSource = errorCode !== undefined && isSourceFatal(errorCode);
+  // Открывать нечем — не предлагаем: пикер уже отказался открыться.
+  const offerPick = canPick && errorCode !== 'PICKER_UNAVAILABLE';
 
   return (
     <ScrollView
@@ -223,18 +255,17 @@ export function Screen() {
 
       {state.kind === 'done' && (
         <>
-          <Card>
-            <Body tone="muted">{`Сохранено в ${RESULT_LOCATION}`}</Body>
-            <Text
-              numberOfLines={2}
-              style={{
-                color: theme.color.text,
-                fontFamily: theme.font.regular,
-                fontSize: 17,
-                fontWeight: '600',
-              }}>
-              {state.result.displayName}
-            </Text>
+          {/*
+            Успех должен быть виден с расстояния вытянутой руки, поэтому у
+            карточки результата свой цвет — единственное место, где вообще
+            используется `success`. Без него `done` и `ready` — две одинаковые
+            серые карточки, и «получилось» приходится вычитывать.
+          */}
+          <Card style={{ borderColor: theme.color.success, borderWidth: 1 }}>
+            <Body tone="success" strong>
+              Готово
+            </Body>
+            <FileName>{state.result.displayName}</FileName>
             <Facts>{resultFacts(state.result)}</Facts>
           </Card>
           {(canShare || canOpen) && (
@@ -251,17 +282,83 @@ export function Screen() {
               )}
             </Row>
           )}
-          <Button label="Другой формат" tone="quiet" onPress={retry} />
+          {/*
+            Следующее видео — обычное продолжение работы, а не выход из тупика:
+            раньше отсюда можно было только сменить формат того же файла, и за
+            новым приходилось выходить из приложения. Действие второстепенное:
+            главное здесь — забрать то, что уже готово.
+          */}
+          <Row>
+            <View style={{ flex: 1 }}>
+              <Button label="Другой формат" tone="quiet" onPress={retry} />
+            </View>
+            {offerPick && (
+              <View style={{ flex: 1 }}>
+                <Button
+                  label={picking ? 'Открываем…' : 'Другое видео'}
+                  tone="quiet"
+                  onPress={pick}
+                  disabled={picking}
+                  hint="Откроется системный выбор файла"
+                />
+              </View>
+            )}
+          </Row>
         </>
       )}
 
       {state.kind === 'error' && (
         <>
           {state.source && <SourceCard source={state.source} />}
-          <Card style={{ borderColor: theme.color.danger, borderWidth: StyleSheet.hairlineWidth }}>
-            <Body tone="danger">{state.message}</Body>
+          <Card style={{ borderColor: theme.color.danger, borderWidth: 1 }}>
+            <Body tone="danger" strong>
+              {state.message}
+            </Body>
+            {fatalSource && (
+              <Body tone="muted">
+                Дело в самом файле: тот же файл в другом формате даст ту же ошибку.
+              </Body>
+            )}
           </Card>
-          <Button label={state.source ? 'Попробовать снова' : 'Понятно'} onPress={retry} />
+          {/*
+            Что предложить, решает код ошибки. Нехватка места лечится повтором,
+            отсутствие звуковой дорожки — нет: «Попробовать снова» там вернуло бы
+            к тому же файлу и к той же ошибке, то есть в тупик. Поэтому на
+            неустранимой ошибке главное действие — взять другой файл.
+          */}
+          {fatalSource ? (
+            offerPick ? (
+              <Button
+                label={picking ? 'Открываем галерею…' : 'Выбрать другое видео'}
+                onPress={pick}
+                disabled={picking}
+                hint="Откроется системный выбор файла"
+              />
+            ) : (
+              <Button
+                label="Начать сначала"
+                onPress={clear}
+                hint="Экран вернётся к началу, откуда видео можно прислать через «Поделиться»"
+              />
+            )
+          ) : (
+            <>
+              {state.source ? (
+                <Button label="Попробовать снова" onPress={retry} />
+              ) : (
+                <Button label="Понятно" onPress={clear} />
+              )}
+              {offerPick && (
+                <Button
+                  label={picking ? 'Открываем галерею…' : 'Выбрать другое видео'}
+                  tone="quiet"
+                  onPress={pick}
+                  disabled={picking}
+                  hint="Откроется системный выбор файла"
+                />
+              )}
+            </>
+          )}
         </>
       )}
     </ScrollView>

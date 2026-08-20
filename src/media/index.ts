@@ -1,4 +1,4 @@
-import { MediaError, isCancellation, toMediaError } from './errors';
+import { MediaError, isCancellation, isSourceFatal, toMediaError } from './errors';
 import {
   PROGRESS_EVENT,
   SHARE_EVENT,
@@ -11,16 +11,18 @@ import type {
   ConvertOptions,
   ConvertResult,
   FormatId,
+  MediaErrorCode,
   ProgressListener,
   SharedSource,
   Unsubscribe,
 } from './types';
 
-export { MediaError, isCancellation, toMediaError };
+export { MediaError, isCancellation, isSourceFatal, toMediaError };
 export type {
   ConvertOptions,
   ConvertResult,
   FormatId,
+  MediaErrorCode,
   ProgressListener,
   SharedSource,
   Unsubscribe,

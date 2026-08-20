@@ -45,6 +45,8 @@ export type Converter = {
   open: () => void;
   /** Из ошибки — обратно к выбору формата (или к пустому экрану). */
   retry: () => void;
+  /** Забыть текущий файл и вернуться к началу. */
+  clear: () => void;
 };
 
 function optionsFor(format: FormatId): ConvertOptions | undefined {
@@ -108,7 +110,8 @@ export function useConverter(): Converter {
       })
       .catch((cause: unknown) => {
         if (alive) {
-          dispatch({ type: 'failed', message: toMediaError(cause).humanMessage });
+          const error = toMediaError(cause);
+          dispatch({ type: 'failed', code: error.code, message: error.humanMessage });
         }
       });
 
@@ -128,7 +131,7 @@ export function useConverter(): Converter {
     dispatch(
       isCancellation(error)
         ? { type: 'reset-to-source' }
-        : { type: 'failed', message: error.humanMessage },
+        : { type: 'failed', code: error.code, message: error.humanMessage },
     );
   }, []);
 
@@ -208,6 +211,12 @@ export function useConverter(): Converter {
     dispatch({ type: 'reset-to-source' });
   }, []);
 
+  // Нужен там, где повтор бессмысленен, а пикера в сборке нет: файл убирается,
+  // и экран возвращается к инструкции про «Поделиться» — единственному входу.
+  const clear = useCallback(() => {
+    dispatch({ type: 'source-cleared' });
+  }, []);
+
   return {
     state,
     canPick: canPickSource(),
@@ -221,5 +230,6 @@ export function useConverter(): Converter {
     share,
     open,
     retry,
+    clear,
   };
 }

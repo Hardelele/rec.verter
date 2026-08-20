@@ -5,7 +5,14 @@ export type Theme = {
   color: {
     background: string;
     surface: string;
+    /** Декоративная граница карточек: разделяет поверхности, ничего не сообщает. */
     border: string;
+    /**
+     * Граница, на которой держится смысл: форма кнопки без заливки, невыбранная
+     * строка формата, трек прогресса. WCAG 1.4.11 требует для таких элементов
+     * 3:1 к фону, и декоративный `border` этого не даёт (1.3:1 в обеих темах).
+     */
+    borderStrong: string;
     text: string;
     muted: string;
     accent: string;
@@ -30,6 +37,8 @@ const LIGHT: Theme['color'] = {
   background: '#FFFFFF',
   surface: '#F3F4F6',
   border: '#E2E4E9',
+  // 3.65:1 к фону #FFFFFF, 3.29:1 к поверхности #F3F4F6.
+  borderStrong: '#82868F',
   text: '#101114',
   muted: '#61646C',
   accent: '#1D4ED8',
@@ -43,6 +52,8 @@ const DARK: Theme['color'] = {
   background: '#0E0F12',
   surface: '#17191E',
   border: '#262A31',
+  // 3.87:1 к фону #0E0F12, 3.58:1 к поверхности #17191E.
+  borderStrong: '#6B7280',
   text: '#F2F3F5',
   muted: '#9A9EA8',
   accent: '#6E9BFF',

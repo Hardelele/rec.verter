@@ -1,5 +1,5 @@
 import { DEFAULT_FORMAT } from '../formats';
-import type { ConvertResult, FormatId, SharedSource } from '../media';
+import type { ConvertResult, FormatId, MediaErrorCode, SharedSource } from '../media';
 
 /**
  * Экран один, поэтому и состояние одно: конечный автомат на useReducer.
@@ -12,7 +12,7 @@ export type ScreenState =
   | { kind: 'ready'; source: SharedSource; format: FormatId }
   | { kind: 'working'; source: SharedSource; format: FormatId; progress?: number; cancelling: boolean }
   | { kind: 'done'; source: SharedSource; format: FormatId; result: ConvertResult }
-  | { kind: 'error'; source?: SharedSource; format: FormatId; message: string };
+  | { kind: 'error'; source?: SharedSource; format: FormatId; code: MediaErrorCode; message: string };
 
 export type Action =
   | { type: 'module-unavailable' }
@@ -23,7 +23,7 @@ export type Action =
   | { type: 'progressed'; progress: number }
   | { type: 'cancel-requested' }
   | { type: 'succeeded'; result: ConvertResult }
-  | { type: 'failed'; message: string }
+  | { type: 'failed'; code: MediaErrorCode; message: string }
   | { type: 'reset-to-source' };
 
 export const initialState: ScreenState = { kind: 'empty' };
@@ -78,11 +78,15 @@ export function reducer(state: ScreenState, action: Action): ScreenState {
       return { kind: 'done', source, format: formatOf(state), result: action.result };
     }
 
+    // Код доезжает до экрана вместе с текстом: от него зависит, что вообще
+    // можно предложить сделать. Файл без звуковой дорожки повтором не чинится,
+    // нехватка места — чинится, и это разные кнопки.
     case 'failed':
       return {
         kind: 'error',
         source: sourceOf(state),
         format: formatOf(state),
+        code: action.code,
         message: action.message,
       };
 

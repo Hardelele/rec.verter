@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 
 import { FORMATS, type FormatDescriptor, type FormatId } from '../formats';
 import { useTheme } from './theme';
@@ -32,8 +32,10 @@ function FormatRow({
         minHeight: 56,
         padding: theme.space(1.5),
         borderRadius: theme.radius.md,
-        borderWidth: selected ? 2 : StyleSheet.hairlineWidth,
-        borderColor: selected ? theme.color.accent : theme.color.border,
+        // Невыбранная строка не залита, поэтому её граница — единственное, чем
+        // она вообще обозначена: контрастный токен, а не декоративный.
+        borderWidth: selected ? 2 : 1,
+        borderColor: selected ? theme.color.accent : theme.color.borderStrong,
         backgroundColor: selected ? theme.color.accentSoft : 'transparent',
         opacity: pressed ? 0.75 : 1,
       })}>

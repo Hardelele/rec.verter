@@ -24,6 +24,22 @@ export function isCancellation(error: MediaError): boolean {
   return error.code === 'CANCELLED';
 }
 
+/**
+ * Ошибки, у которых причина — сам файл. Повтор с тем же исходником и любым
+ * форматом даст ровно ту же ошибку: дорожка не появится, битый контейнер не
+ * починится. Экран по этому признаку выбирает, что предложить человеку —
+ * взять другой файл или повторить попытку.
+ */
+const SOURCE_FATAL: readonly MediaErrorCode[] = [
+  'NO_AUDIO_TRACK',
+  'CORRUPTED_SOURCE',
+  'UNSUPPORTED_CONTAINER',
+];
+
+export function isSourceFatal(code: MediaErrorCode): boolean {
+  return SOURCE_FATAL.includes(code);
+}
+
 export class MediaError extends Error {
   readonly code: MediaErrorCode;
   /** Техническая подробность от моста — для разработчика, не для экрана. */

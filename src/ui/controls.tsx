@@ -47,27 +47,56 @@ export function Title({ children }: { children: ReactNode }) {
   );
 }
 
-export function Body({ children, tone }: { children: ReactNode; tone?: 'muted' | 'danger' }) {
+export function Body({
+  children,
+  tone,
+  strong,
+}: {
+  children: ReactNode;
+  tone?: 'muted' | 'danger' | 'success';
+  /** Вес, а не кегль: понизить текст в правах можно цветом, повысить — весом. */
+  strong?: boolean;
+}) {
   const theme = useTheme();
   const color =
-    tone === 'danger' ? theme.color.danger : tone === 'muted' ? theme.color.muted : theme.color.text;
+    tone === 'danger'
+      ? theme.color.danger
+      : tone === 'success'
+        ? theme.color.success
+        : tone === 'muted'
+          ? theme.color.muted
+          : theme.color.text;
   return (
-    <Text style={{ color, fontFamily: theme.font.regular, fontSize: 15, lineHeight: 22 }}>
+    <Text
+      style={{
+        color,
+        fontFamily: theme.font.regular,
+        fontSize: 15,
+        lineHeight: 22,
+        fontWeight: strong ? '700' : '400',
+      }}>
       {children}
     </Text>
   );
 }
 
-/** Факты о файле: моноширинный, чтобы цифры не прыгали при обновлении прогресса. */
-export function Facts({ children }: { children: ReactNode }) {
+/**
+ * Факты о файле: длительность, размер, место.
+ *
+ * Моноширинный — только там, где цифры меняются на глазах и не должны прыгать,
+ * то есть у процента конвертации. У неподвижной строки повода нет, а вред есть:
+ * в моноширинном пробел шире буквы, и «270 КБ» читается как «270  КБ», то есть
+ * как опечатка. Поэтому `mono` включается по месту, а не по умолчанию.
+ */
+export function Facts({ children, mono = false }: { children: ReactNode; mono?: boolean }) {
   const theme = useTheme();
   return (
     <Text
       style={{
         color: theme.color.muted,
-        fontFamily: theme.font.mono,
+        fontFamily: mono ? theme.font.mono : theme.font.regular,
         fontSize: 13,
-        letterSpacing: 0.2,
+        lineHeight: 18,
       }}>
       {children}
     </Text>
@@ -77,8 +106,14 @@ export function Facts({ children }: { children: ReactNode }) {
 function toneStyles(theme: Theme, tone: ButtonTone, pressed: boolean, disabled: boolean) {
   const base = {
     primary: { background: theme.color.accent, label: theme.color.accentText, border: 'transparent' },
-    secondary: { background: theme.color.accentSoft, label: theme.color.accent, border: theme.color.border },
-    quiet: { background: 'transparent', label: theme.color.muted, border: theme.color.border },
+    // Заливка `accentSoft` почти не отличается от фона, а у `quiet` её нет
+    // вовсе: у обеих кнопок форму держит рамка, поэтому она контрастная.
+    secondary: {
+      background: theme.color.accentSoft,
+      label: theme.color.accent,
+      border: theme.color.borderStrong,
+    },
+    quiet: { background: 'transparent', label: theme.color.muted, border: theme.color.borderStrong },
   }[tone];
   return {
     background: base.background,
@@ -115,7 +150,9 @@ export function Button({
         return {
           backgroundColor: colors.background,
           borderColor: colors.border,
-          borderWidth: tone === 'primary' ? 0 : StyleSheet.hairlineWidth,
+          // Волосяная линия на плотном экране — треть точки: у кнопки, форма
+          // которой держится только на рамке, её должно быть видно.
+          borderWidth: tone === 'primary' ? 0 : 1,
           borderRadius: theme.radius.md,
           opacity: colors.opacity,
           // 48 — минимальный комфортный размер касания.
