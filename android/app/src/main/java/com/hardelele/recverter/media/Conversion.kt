@@ -4,6 +4,8 @@ import android.content.Context
 import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.net.Uri
+import android.os.ParcelFileDescriptor
+import java.io.Closeable
 import java.io.IOException
 
 enum class MediaErrorCode {
@@ -53,18 +55,51 @@ internal fun ProgressSink.throwIfCancelled() {
     if (isCancelled()) throw MediaError(MediaErrorCode.CANCELLED)
 }
 
-internal fun openExtractor(context: Context, source: Uri): MediaExtractor {
+/**
+ * Открытый исходник. Дескриптор живёт ровно столько же, сколько экстрактор,
+ * поэтому они закрываются вместе.
+ */
+internal class Source(
+    val extractor: MediaExtractor,
+    private val descriptor: ParcelFileDescriptor?,
+) : Closeable {
+    override fun close() {
+        runCatching { extractor.release() }
+        runCatching { descriptor?.close() }
+    }
+}
+
+/**
+ * Источник открывается через дескриптор от ContentResolver, а не по пути: при Scoped
+ * Storage нативный FileSource не имеет доступа к чужим файлам даже по абсолютному пути,
+ * а доступ по content-URI выдаётся именно дескриптором.
+ */
+internal fun openSource(context: Context, source: Uri): Source {
     val extractor = MediaExtractor()
+    val descriptor = runCatching {
+        context.contentResolver.openFileDescriptor(source, "r")
+    }.getOrNull()
+
     try {
-        extractor.setDataSource(context, source, null)
+        if (descriptor != null) {
+            extractor.setDataSource(descriptor.fileDescriptor)
+        } else {
+            extractor.setDataSource(context, source, null)
+        }
     } catch (e: IOException) {
         extractor.release()
+        descriptor?.close()
         throw MediaError(MediaErrorCode.CORRUPTED_SOURCE, "cannot open source", e)
     } catch (e: IllegalArgumentException) {
         extractor.release()
+        descriptor?.close()
         throw MediaError(MediaErrorCode.UNSUPPORTED_CONTAINER, "unknown container", e)
+    } catch (e: SecurityException) {
+        extractor.release()
+        descriptor?.close()
+        throw MediaError(MediaErrorCode.CORRUPTED_SOURCE, "no access to source", e)
     }
-    return extractor
+    return Source(extractor, descriptor)
 }
 
 /** Первая аудиодорожка контейнера; остальные игнорируются намеренно. */

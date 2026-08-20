@@ -26,7 +26,8 @@ object AudioExtractor {
         target: File,
         progress: ProgressSink = ProgressSink.NONE,
     ): Track {
-        val extractor = openExtractor(context, source)
+        val opened = openSource(context, source)
+        val extractor = opened.extractor
         var muxer: MediaMuxer? = null
         var muxerStarted = false
         try {
@@ -92,7 +93,7 @@ object AudioExtractor {
                 if (muxerStarted) runCatching { open.stop() }
                 runCatching { open.release() }
             }
-            extractor.release()
+            opened.close()
         }
     }
 

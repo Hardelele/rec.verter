@@ -32,7 +32,8 @@ object PcmDecoder {
         sink: Sink,
         progress: ProgressSink = ProgressSink.NONE,
     ) {
-        val extractor = openExtractor(context, source)
+        val opened = openSource(context, source)
+        val extractor = opened.extractor
         var codec: MediaCodec? = null
         try {
             val trackIndex = firstAudioTrack(extractor)
@@ -160,7 +161,7 @@ object PcmDecoder {
                 runCatching { open.stop() }
                 runCatching { open.release() }
             }
-            extractor.release()
+            opened.close()
         }
     }
 
@@ -218,56 +219,56 @@ object PcmDecoder {
             out[j++] = ((v shr 8) and 0xFF).toByte()
         }
     }
+}
 
-    /**
-     * Сведение в моно и линейный ресемплинг в 16 кГц. Состояние живёт между буферами:
-     * хранится дробная позиция и последний сэмпл предыдущего буфера, иначе на каждой
-     * границе появлялся бы щелчок.
-     */
-    private class Mono16k(private val sourceRate: Int, private val channels: Int) {
-        private val step = sourceRate.toDouble() / ASR_SAMPLE_RATE
-        private var position = 0.0
-        private var previous: Short = 0
-        private var out = ShortArray(0)
+/**
+ * Сведение в моно и линейный ресемплинг в 16 кГц. Состояние живёт между буферами:
+ * хранится дробная позиция и последний сэмпл предыдущего буфера, иначе на каждой
+ * границе появлялся бы щелчок.
+ */
+internal class Mono16k(private val sourceRate: Int, private val channels: Int) {
+    private val step = sourceRate.toDouble() / PcmDecoder.ASR_SAMPLE_RATE
+    private var position = 0.0
+    private var previous: Short = 0
+    private var out = ShortArray(0)
 
-        fun monoCapacity(interleavedCount: Int): Int = interleavedCount / channels + 1
+    fun monoCapacity(interleavedCount: Int): Int = interleavedCount / channels + 1
 
-        fun downmix(interleaved: ShortArray, count: Int, target: ShortArray): Int {
-            if (channels == 1) {
-                System.arraycopy(interleaved, 0, target, 0, count)
-                return count
-            }
-            val frames = count / channels
-            for (frame in 0 until frames) {
-                var sum = 0
-                val base = frame * channels
-                for (c in 0 until channels) sum += interleaved[base + c]
-                target[frame] = (sum / channels).toShort()
-            }
-            return frames
+    fun downmix(interleaved: ShortArray, count: Int, target: ShortArray): Int {
+        if (channels == 1) {
+            System.arraycopy(interleaved, 0, target, 0, count)
+            return count
         }
-
-        fun resample(mono: ShortArray, count: Int): Pair<ShortArray, Int> {
-            if (count == 0) return out to 0
-            if (sourceRate == ASR_SAMPLE_RATE) return mono to count
-
-            val estimate = (count / step).toInt() + 2
-            if (out.size < estimate) out = ShortArray(estimate)
-
-            var produced = 0
-            // previous занимает виртуальный индекс -1, поэтому позиция допустима от -1 до count-1.
-            while (position <= count - 1) {
-                val i = Math.floor(position).toInt()
-                val frac = position - i
-                val a = if (i < 0) previous.toInt() else mono[i].toInt()
-                val b = if (i + 1 < count) mono[i + 1].toInt() else a
-                if (produced == out.size) out = out.copyOf(out.size * 2)
-                out[produced++] = (a + (b - a) * frac).toInt().toShort()
-                position += step
-            }
-            previous = mono[count - 1]
-            position -= count
-            return out to produced
+        val frames = count / channels
+        for (frame in 0 until frames) {
+            var sum = 0
+            val base = frame * channels
+            for (c in 0 until channels) sum += interleaved[base + c]
+            target[frame] = (sum / channels).toShort()
         }
+        return frames
+    }
+
+    fun resample(mono: ShortArray, count: Int): Pair<ShortArray, Int> {
+        if (count == 0) return out to 0
+        if (sourceRate == PcmDecoder.ASR_SAMPLE_RATE) return mono to count
+
+        val estimate = (count / step).toInt() + 2
+        if (out.size < estimate) out = ShortArray(estimate)
+
+        var produced = 0
+        // previous занимает виртуальный индекс -1, поэтому позиция допустима от -1 до count-1.
+        while (position <= count - 1) {
+            val i = Math.floor(position).toInt()
+            val frac = position - i
+            val a = if (i < 0) previous.toInt() else mono[i].toInt()
+            val b = if (i + 1 < count) mono[i + 1].toInt() else a
+            if (produced == out.size) out = out.copyOf(out.size * 2)
+            out[produced++] = (a + (b - a) * frac).toInt().toShort()
+            position += step
+        }
+        previous = mono[count - 1]
+        position -= count
+        return out to produced
     }
 }
