@@ -37,8 +37,14 @@ object Converter {
 
             val sizeBytes = temp.length()
             val name = OutputStore.sourceStem(context, source) + "." + normalized
-            val path = OutputStore.publish(context, temp, name, mimeType)
-            return ConversionResult(path, mimeType, durationMs, sizeBytes)
+            val published = OutputStore.publish(context, temp, name, mimeType)
+            return ConversionResult(
+                published.uri,
+                published.displayName,
+                mimeType,
+                durationMs,
+                sizeBytes,
+            )
         } finally {
             temp.delete()
         }

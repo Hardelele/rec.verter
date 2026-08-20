@@ -46,6 +46,12 @@ data class ConvertOptions(
 
 data class ConversionResult(
     val path: String,
+    /**
+     * Имя, под которым файл лёг в медиатеку. Не то же, что запрошенное: при совпадении
+     * MediaStore сам дописывает « (1)», и экран обязан показывать фактическое имя,
+     * а не то, которое мы просили.
+     */
+    val displayName: String,
     val mimeType: String,
     val durationMs: Long,
     val sizeBytes: Long,

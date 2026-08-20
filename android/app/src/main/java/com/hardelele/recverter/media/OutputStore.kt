@@ -24,7 +24,14 @@ object OutputStore {
     private const val COPY_BUFFER = 1 shl 16
     private const val SCAN_TIMEOUT_SECONDS = 5L
 
-    fun publish(context: Context, source: File, displayName: String, mimeType: String): String =
+    /**
+     * Куда лёг результат. Имя возвращается фактическое: и MediaStore, и [unique] при
+     * совпадении дописывают « (1)», а угадывать этот суффикс на стороне интерфейса
+     * значит рано или поздно показать пользователю не тот файл.
+     */
+    data class Published(val uri: String, val displayName: String)
+
+    fun publish(context: Context, source: File, displayName: String, mimeType: String): Published =
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 publishToMediaStore(context, source, displayName, mimeType)
@@ -40,7 +47,7 @@ object OutputStore {
         source: File,
         displayName: String,
         mimeType: String,
-    ): String {
+    ): Published {
         val resolver = context.contentResolver
         val collection = MediaStore.Audio.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
         val values = ContentValues().apply {
@@ -68,10 +75,23 @@ object OutputStore {
         values.clear()
         values.put(MediaStore.Audio.Media.IS_PENDING, 0)
         resolver.update(target, values, null, null)
-        return target.toString()
+        return Published(target.toString(), actualName(context, target) ?: displayName)
     }
 
-    private fun publishToPublicDir(context: Context, source: File, displayName: String): String {
+    /** Имя после вставки: MediaStore мог развести коллизию и записать не то, что просили. */
+    private fun actualName(context: Context, target: Uri): String? = runCatching {
+        context.contentResolver.query(
+            target,
+            arrayOf(MediaStore.Audio.Media.DISPLAY_NAME),
+            null,
+            null,
+            null,
+        )?.use { cursor ->
+            if (cursor.moveToFirst() && !cursor.isNull(0)) cursor.getString(0) else null
+        }
+    }.getOrNull()
+
+    private fun publishToPublicDir(context: Context, source: File, displayName: String): Published {
         val dir = File(
             Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC),
             FOLDER,
@@ -96,7 +116,7 @@ object OutputStore {
             done.countDown()
         }
         done.await(SCAN_TIMEOUT_SECONDS, TimeUnit.SECONDS)
-        return scanned[0]?.toString() ?: target.absolutePath
+        return Published(scanned[0]?.toString() ?: target.absolutePath, target.name)
     }
 
     private fun unique(dir: File, displayName: String): File {

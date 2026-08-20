@@ -54,11 +54,16 @@ convert(sourceUri: string, format: 'm4a' | 'wav' | 'mp3', options?: {
   mono16k?: boolean         // приведение к 16 кГц моно, для будущего ASR
 }): Promise<{
   path: string
+  displayName: string       // фактическое имя в медиатеке, см. ниже
   mimeType: string
   durationMs: number
   sizeBytes: number
 }>
 ```
+
+`displayName` возвращается потому, что запрошенное имя и записанное — разные вещи:
+при совпадении MediaStore сам дописывает « (1)». Интерфейс показывает это поле,
+а не собирает имя из имени исходника, иначе он врёт о том, куда сохранён файл.
 
 Прогресс — событием `recverter:progress` с полем `0..1`. Отмена — `cancel()`.
 

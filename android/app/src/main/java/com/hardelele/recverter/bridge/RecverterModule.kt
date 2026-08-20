@@ -56,6 +56,7 @@ class RecverterModule(
                 promise.resolve(
                     Arguments.createMap().apply {
                         putString("path", result.path)
+                        putString("displayName", result.displayName)
                         putString("mimeType", result.mimeType)
                         putDouble("durationMs", result.durationMs.toDouble())
                         putDouble("sizeBytes", result.sizeBytes.toDouble())
