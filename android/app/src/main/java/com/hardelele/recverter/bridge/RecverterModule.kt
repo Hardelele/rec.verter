@@ -1,5 +1,6 @@
 package com.hardelele.recverter.bridge
 
+import android.content.ClipData
 import android.content.Intent
 import android.net.Uri
 import com.facebook.react.bridge.Arguments
@@ -14,6 +15,7 @@ import com.hardelele.recverter.media.ConvertOptions
 import com.hardelele.recverter.media.Converter
 import com.hardelele.recverter.media.MediaError
 import com.hardelele.recverter.media.MediaErrorCode
+import com.hardelele.recverter.media.OutputStore
 import com.hardelele.recverter.media.ProgressSink
 import com.hardelele.recverter.media.SourceInfo
 import java.util.concurrent.Executors
@@ -84,9 +86,11 @@ class RecverterModule(
 
     @ReactMethod
     fun shareResult(path: String, mimeType: String, promise: Promise) {
+        val uri = OutputStore.shareableUri(context, Uri.parse(path))
         val intent = Intent(Intent.ACTION_SEND).apply {
             type = mimeType
-            putExtra(Intent.EXTRA_STREAM, Uri.parse(path))
+            putExtra(Intent.EXTRA_STREAM, uri)
+            clipData = clipOf(uri)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
         launch(Intent.createChooser(intent, null), promise)
@@ -94,12 +98,23 @@ class RecverterModule(
 
     @ReactMethod
     fun openResult(path: String, mimeType: String, promise: Promise) {
+        val uri = Uri.parse(path)
         val intent = Intent(Intent.ACTION_VIEW).apply {
-            setDataAndType(Uri.parse(path), mimeType)
+            setDataAndType(uri, mimeType)
+            clipData = clipOf(uri)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
         launch(Intent.createChooser(intent, null), promise)
     }
+
+    /**
+     * URI кладётся ещё и в ClipData. Одного FLAG_GRANT_READ_URI_PERMISSION мало: для
+     * чужого content-URI система выдаёт временный доступ по data и clipData интента,
+     * а EXTRA_STREAM для неё — просто extra. Заодно у чужого URI появляется подпись,
+     * иначе chooser показывает файл числовым id из MediaStore.
+     */
+    private fun clipOf(uri: Uri): ClipData =
+        ClipData.newUri(context.contentResolver, SourceInfo.of(context, uri).name, uri)
 
     // NativeEventEmitter требует эти методы на модуле; подписка ведётся на стороне JS.
     @ReactMethod

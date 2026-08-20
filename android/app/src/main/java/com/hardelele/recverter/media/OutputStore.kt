@@ -7,6 +7,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
+import androidx.core.content.FileProvider
 import java.io.File
 import java.io.FileInputStream
 import java.io.IOException
@@ -21,6 +22,7 @@ import java.util.concurrent.TimeUnit
 object OutputStore {
 
     private const val FOLDER = "rec.verter"
+    private const val AUTHORITY_SUFFIX = ".fileprovider"
     private const val COPY_BUFFER = 1 shl 16
     private const val SCAN_TIMEOUT_SECONDS = 5L
 
@@ -130,6 +132,52 @@ object OutputStore {
             n++
         }
         return candidate
+    }
+
+    /**
+     * URI готового файла в виде, пригодном для чужого приложения.
+     *
+     * Системный share sheet спрашивает имя файла запросом, куда входит колонка
+     * `DocumentsContract.Document.COLUMN_FLAGS`. MediaProvider такой колонки не знает и
+     * отвечает `IllegalArgumentException: Invalid column flags`, после чего chooser берёт
+     * последний сегмент URI — числовой id. FileProvider неизвестные колонки пропускает и
+     * отдаёт DISPLAY_NAME, поэтому наружу уходит именно он.
+     *
+     * Файл ищется по RELATIVE_PATH и DISPLAY_NAME, а не по `_data`: колонка устарела и
+     * для чужих записей отдаётся вычищенной. Не нашли — отдаём исходный URI: некрасивая
+     * подпись лучше, чем несработавшая кнопка.
+     */
+    fun shareableUri(context: Context, published: Uri): Uri {
+        val local = localFile(context, published) ?: return published
+        return runCatching {
+            FileProvider.getUriForFile(context, context.packageName + AUTHORITY_SUFFIX, local)
+        }.getOrDefault(published)
+    }
+
+    private fun localFile(context: Context, published: Uri): File? {
+        if (published.scheme == "file") return File(published.path ?: return null)
+        if (published.scheme != "content") return null
+        val row = runCatching {
+            context.contentResolver.query(
+                published,
+                arrayOf(
+                    MediaStore.MediaColumns.RELATIVE_PATH,
+                    MediaStore.MediaColumns.DISPLAY_NAME,
+                ),
+                null,
+                null,
+                null,
+            )?.use { cursor ->
+                if (!cursor.moveToFirst() || cursor.isNull(0) || cursor.isNull(1)) {
+                    null
+                } else {
+                    cursor.getString(0) to cursor.getString(1)
+                }
+            }
+        }.getOrNull() ?: return null
+
+        val file = File(File(Environment.getExternalStorageDirectory(), row.first), row.second)
+        return if (file.canRead()) file else null
     }
 
     /** Имя исходника без расширения — из него собирается имя результата. */

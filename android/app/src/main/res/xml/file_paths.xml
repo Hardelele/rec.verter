@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Наружу отдаётся только папка с готовыми файлами — та же, куда пишет OutputStore.
+  Ни кэш, ни данные приложения через этот провайдер не видны.
+-->
+<paths>
+  <external-path name="recverter-output" path="Music/rec.verter/" />
+</paths>
