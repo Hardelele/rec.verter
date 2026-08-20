@@ -45,7 +45,31 @@ M4A стоит первым не случайно: это тот же звук, 
 - Нативный модуль на Kotlin: `MediaExtractor` / `MediaCodec` / `MediaMuxer`
 - Приём файлов через системный share sheet
 
-Сборка и запуск появятся здесь, как только соберётся первая версия.
+## Сборка
+
+Нужны Node 22, Android SDK (platform 36, build-tools 36.0.0, NDK 27.1.12297006) и
+JDK 21. Путь к JDK прописан в `android/gradle.properties` (`org.gradle.java.home`) —
+если у вас он другой, поправьте эту строку.
+
+```powershell
+npm install
+cd android
+.\gradlew.bat assembleDebug
+```
+
+Готовый APK: `android/app/build/outputs/apk/debug/app-debug.apk`.
+
+Установить на подключённое устройство или запущенный эмулятор:
+
+```powershell
+adb install -r android\app\build\outputs\apk\debug\app-debug.apk
+```
+
+Метро-сервер для разработки поднимается отдельно — `npx expo start --dev-client`.
+
+Папка `android/` версионируется намеренно: в неё будет добавлен нативный модуль на
+Kotlin, поэтому пересоздавать её через `npx expo prebuild` не нужно (и не следует —
+это затрёт правки).
 
 ## Лицензия
 
