@@ -4,7 +4,7 @@ import { findFormat } from '../formats';
 import type { ConvertResult, SharedSource } from '../media';
 import { Body, Button, Card, Facts, Row, Title } from './controls';
 import { FormatList } from './FormatList';
-import { RESULT_LOCATION, formatDuration, formatSize, joinFacts, resultFileName } from './human';
+import { RESULT_LOCATION, formatDuration, formatSize, joinFacts } from './human';
 import { useTheme } from './theme';
 import { useConverter } from './useConverter';
 
@@ -184,10 +184,7 @@ export function Screen() {
                 fontSize: 17,
                 fontWeight: '600',
               }}>
-              {resultFileName(
-                state.source.name,
-                findFormat(state.format)?.extension ?? state.format,
-              )}
+              {state.result.displayName}
             </Text>
             <Facts>{resultFacts(state.result)}</Facts>
           </Card>

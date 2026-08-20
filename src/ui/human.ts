@@ -39,23 +39,3 @@ export function joinFacts(facts: (string | undefined)[]): string {
  * поэтому это подпись, а не разбор пути.
  */
 export const RESULT_LOCATION = 'Музыка/rec.verter';
-
-/**
- * Имя результата предсказуемо: имя исходника без расширения плюс расширение
- * формата. Из `path` его не достать — там content-URI вида
- * `content://media/external/audio/media/1000000021`, в котором имени нет вовсе,
- * а есть только числовой id записи медиатеки.
- *
- * Санитайзер повторяет `OutputStore.sourceStem` на стороне Kotlin: те же
- * допустимые символы, тот же предел длины. Разойтись они могут только если
- * система дописала «(1)» к имени-дубликату.
- */
-export function resultFileName(sourceName: string, extension: string): string {
-  const dot = sourceName.lastIndexOf('.');
-  const stem = dot > 0 ? sourceName.slice(0, dot) : sourceName;
-  const clean = stem
-    .replace(/[^\p{L}\p{N} ._-]/gu, '_')
-    .trim()
-    .slice(0, 80);
-  return `${clean || 'звук'}.${extension}`;
-}

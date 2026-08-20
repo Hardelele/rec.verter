@@ -14,6 +14,12 @@ export type ConvertOptions = {
 
 export type ConvertResult = {
   path: string;
+  /**
+   * Фактическое имя в медиатеке. Совпадает с запрошенным не всегда: при
+   * конфликте имён MediaStore сам дописывает « (1)». Показывать нужно его,
+   * иначе интерфейс врёт о том, какой файл лежит на диске.
+   */
+  displayName: string;
   mimeType: string;
   durationMs: number;
   sizeBytes: number;
