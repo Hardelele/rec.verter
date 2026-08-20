@@ -60,16 +60,26 @@ function FormatRow({
           {format.hint}
         </Text>
       </View>
-      {/* Отметка выбора — символ, а не иконочный шрифт: лишней зависимости не нужно. */}
-      <Text
-        style={{
-          color: selected ? theme.color.accent : 'transparent',
-          fontFamily: theme.font.regular,
-          fontSize: 18,
-          fontWeight: '700',
-        }}>
-        ✓
-      </Text>
+      {/*
+        Отметка выбора — символ, а не иконочный шрифт: лишней зависимости не нужно.
+        Невыбранную строку прячем целиком, а не красим в 'transparent': Android
+        отдаёт «✓» шрифту-подложке, и прозрачность до него не доходит — галочка
+        остаётся видимой, и выбранными выглядят все три формата сразу.
+        Ширину держит пустая View, иначе строки прыгают при выборе.
+      */}
+      <View style={{ width: 18, alignItems: 'center' }}>
+        {selected && (
+          <Text
+            style={{
+              color: theme.color.accent,
+              fontFamily: theme.font.regular,
+              fontSize: 18,
+              fontWeight: '700',
+            }}>
+            ✓
+          </Text>
+        )}
+      </View>
     </Pressable>
   );
 }

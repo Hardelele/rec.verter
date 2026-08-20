@@ -42,7 +42,12 @@ export const ERROR_CODES = [
 export type ErrorCode = (typeof ERROR_CODES)[number];
 
 /** Всё, что мост не опознал, сводится сюда. */
-export type MediaErrorCode = ErrorCode | 'MODULE_UNAVAILABLE' | 'UNKNOWN';
+export type MediaErrorCode =
+  | ErrorCode
+  | 'MODULE_UNAVAILABLE'
+  /** Не с моста: разрешение на запись спрашивает UI, и только на Android 8–9. */
+  | 'STORAGE_PERMISSION_DENIED'
+  | 'UNKNOWN';
 
 export type ProgressListener = (progress: number) => void;
 

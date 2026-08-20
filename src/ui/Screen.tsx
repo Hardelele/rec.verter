@@ -4,7 +4,7 @@ import { findFormat } from '../formats';
 import type { ConvertResult, SharedSource } from '../media';
 import { Body, Button, Card, Facts, Row, Title } from './controls';
 import { FormatList } from './FormatList';
-import { directoryName, fileName, formatDuration, formatSize, joinFacts } from './human';
+import { RESULT_LOCATION, formatDuration, formatSize, joinFacts, resultFileName } from './human';
 import { useTheme } from './theme';
 import { useConverter } from './useConverter';
 
@@ -175,7 +175,7 @@ export function Screen() {
       {state.kind === 'done' && (
         <>
           <Card>
-            <Body tone="muted">Сохранено</Body>
+            <Body tone="muted">{`Сохранено в ${RESULT_LOCATION}`}</Body>
             <Text
               numberOfLines={2}
               style={{
@@ -184,9 +184,12 @@ export function Screen() {
                 fontSize: 17,
                 fontWeight: '600',
               }}>
-              {fileName(state.result.path)}
+              {resultFileName(
+                state.source.name,
+                findFormat(state.format)?.extension ?? state.format,
+              )}
             </Text>
-            <Facts>{joinFacts([`папка ${directoryName(state.result.path)}`, resultFacts(state.result)])}</Facts>
+            <Facts>{resultFacts(state.result)}</Facts>
           </Card>
           {(canShare || canOpen) && (
             <Row>

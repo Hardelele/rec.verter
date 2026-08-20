@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useReducer, useRef } from 'react';
+import { PermissionsAndroid, Platform } from 'react-native';
 
 import { findFormat } from '../formats';
 import {
+  MediaError,
   cancel as cancelConversion,
   canOpenResult,
   canShareResult,
@@ -40,6 +42,30 @@ export type Converter = {
 function optionsFor(format: FormatId): ConvertOptions | undefined {
   const bitrateKbps = findFormat(format)?.defaultBitrateKbps;
   return bitrateKbps === undefined ? undefined : { bitrateKbps };
+}
+
+/**
+ * На Android 8–9 запись в общую папку требует рантайм-разрешения; с Android 10
+ * его отменил Scoped Storage, и запрашивать там нечего — система откажет молча.
+ * Диалог показывает UI: нативный слой про Activity и разрешения не знает.
+ */
+async function ensureStorageAccess(): Promise<void> {
+  if (Platform.OS !== 'android' || Platform.Version >= 29) {
+    return;
+  }
+  const permission = PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE;
+  if (await PermissionsAndroid.check(permission)) {
+    return;
+  }
+  const granted = await PermissionsAndroid.request(permission, {
+    title: 'Куда сохранить звук',
+    message: 'rec.verter кладёт готовый файл в папку Музыка/rec.verter. Для этого нужен доступ к памяти.',
+    buttonPositive: 'Разрешить',
+    buttonNegative: 'Не сейчас',
+  });
+  if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+    throw new MediaError('STORAGE_PERMISSION_DENIED');
+  }
 }
 
 export function useConverter(): Converter {
@@ -106,7 +132,8 @@ export function useConverter(): Converter {
     runRef.current = run;
     dispatch({ type: 'started' });
 
-    convert(source.uri, format, optionsFor(format))
+    ensureStorageAccess()
+      .then(() => convert(source.uri, format, optionsFor(format)))
       .then((result) => {
         if (run === runRef.current) {
           dispatch({ type: 'succeeded', result });

@@ -34,14 +34,28 @@ export function joinFacts(facts: (string | undefined)[]): string {
   return facts.filter((fact): fact is string => Boolean(fact)).join(' · ');
 }
 
-/** Из полного пути показываем только имя файла: путь человеку ни о чём не говорит. */
-export function fileName(path: string): string {
-  const parts = path.split(/[\\/]/);
-  return parts[parts.length - 1] || path;
-}
+/**
+ * Куда мост кладёт результат. Папка известна заранее и не зависит от файла,
+ * поэтому это подпись, а не разбор пути.
+ */
+export const RESULT_LOCATION = 'Музыка/rec.verter';
 
-/** Папка, в которой лежит результат — это и есть ответ на «где сохранено». */
-export function directoryName(path: string): string {
-  const parts = path.split(/[\\/]/).filter(Boolean);
-  return parts.length > 1 ? parts[parts.length - 2] : path;
+/**
+ * Имя результата предсказуемо: имя исходника без расширения плюс расширение
+ * формата. Из `path` его не достать — там content-URI вида
+ * `content://media/external/audio/media/1000000021`, в котором имени нет вовсе,
+ * а есть только числовой id записи медиатеки.
+ *
+ * Санитайзер повторяет `OutputStore.sourceStem` на стороне Kotlin: те же
+ * допустимые символы, тот же предел длины. Разойтись они могут только если
+ * система дописала «(1)» к имени-дубликату.
+ */
+export function resultFileName(sourceName: string, extension: string): string {
+  const dot = sourceName.lastIndexOf('.');
+  const stem = dot > 0 ? sourceName.slice(0, dot) : sourceName;
+  const clean = stem
+    .replace(/[^\p{L}\p{N} ._-]/gu, '_')
+    .trim()
+    .slice(0, 80);
+  return `${clean || 'звук'}.${extension}`;
 }
