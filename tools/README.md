@@ -7,3 +7,4 @@
 | Скрипт | Что делает | Вызов |
 |---|---|---|
 | `icon/render_icon.py` | растеризует иконку приложения из геометрии `assets/icon.svg` в PNG для стора, iOS и веба (Android берёт вектор). Нужен Pillow. | `python tools/icon/render_icon.py` |
+| `rustore.mjs` | публикация в RuStore через Public API: JWT по подписи ключа из SOPS, черновик версии с текстами из `assets/store/listing.md`, загрузка APK, иконки и скриншотов, статус версий. Метаданные проверяются по длине до запроса. На модерацию не отправляет — `commit` требует `--yes`. | `node tools/rustore.mjs draft` / `status` / `commit <id> --yes` |
