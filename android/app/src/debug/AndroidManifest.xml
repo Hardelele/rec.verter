@@ -2,6 +2,10 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
+    <!-- Только debug: главный манифест вырезает INTERNET, а без него сборка не достучится
+         до Metro и дев-цикла нет. tools:node="replace" отменяет удаление из main именно
+         в этом варианте; в release разрешения по-прежнему нет — проверяется aapt2. -->
+    <uses-permission android:name="android.permission.INTERNET" tools:node="replace"/>
 
     <application android:usesCleartextTraffic="true" tools:targetApi="28" tools:ignore="GoogleAppIndexingWarning" tools:replace="android:usesCleartextTraffic" />
 </manifest>
