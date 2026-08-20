@@ -1,0 +1,42 @@
+apply plugin: "com.android.library"
+apply plugin: "org.jetbrains.kotlin.android"
+
+/**
+ * Отдельный модуль, а не нативная часть :app — намеренно. Сборка :app целиком
+ * принадлежит React Native Gradle Plugin (target appmodules), и добавление своего
+ * externalNativeBuild туда означало бы копирование внутреннего CMakeLists RN
+ * в репозиторий и его поддержку при каждом обновлении RN. Здесь LAME собирается
+ * своим CMake, ничего не зная ни про RN, ни про Expo.
+ */
+android {
+    namespace 'com.hardelele.recverter.lame'
+    ndkVersion rootProject.ext.ndkVersion
+    buildToolsVersion rootProject.ext.buildToolsVersion
+    compileSdk rootProject.ext.compileSdkVersion
+
+    defaultConfig {
+        minSdkVersion rootProject.ext.minSdkVersion
+
+        externalNativeBuild {
+            cmake {
+                // Ассемблерных вставок LAME (i386/) не берём, только переносимый C.
+                arguments '-DANDROID_STL=none'
+            }
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path 'src/main/cpp/CMakeLists.txt'
+            version '3.22.1'
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    kotlinOptions {
+        jvmTarget = '17'
+    }
+}

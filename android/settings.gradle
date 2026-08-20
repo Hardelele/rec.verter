@@ -36,4 +36,7 @@ rootProject.name = 'rec.verter'
 expoAutolinking.useExpoVersionCatalog()
 
 include ':app'
+// LAME живёт отдельным модулем: сборкой :app целиком управляет плагин React Native,
+// и своему CMake там места нет.
+include ':lame'
 includeBuild(expoAutolinking.reactNativeGradlePlugin)

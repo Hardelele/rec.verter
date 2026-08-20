@@ -156,6 +156,10 @@ dependencies {
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")
 
+    // MP3: LAME (LGPL 2.1), собирается из исходников свежим NDK. Единственная нативная
+    // зависимость проекта и единственное исключение из запрета на ffmpeg — только энкодер.
+    implementation(project(":lame"))
+
     // JUnit нужен только слою media/: он не знает про React Native и проверяется
     // обычным JVM-тестом, без эмулятора и Metro.
     testImplementation("junit:junit:4.13.2")
