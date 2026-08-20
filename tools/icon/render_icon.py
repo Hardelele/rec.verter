@@ -94,9 +94,13 @@ def main():
         "android-icon-background.png": render(1024, background=BACKGROUND, art=False),
         "android-icon-monochrome.png": render(1024, frame_color=WHITE, sound_color=WHITE),
         "favicon.png": render(48, background=BACKGROUND),
+        # Карточка в сторе: ровно 512x512 и без альфа-канала — RuStore требует
+        # заливку по всей площади, прозрачные края он отклоняет.
+        "store/icon-512.png": render(512, background=BACKGROUND).convert("RGB"),
     }
     for name, image in outputs.items():
         path = assets / name
+        path.parent.mkdir(parents=True, exist_ok=True)
         image.save(path)
         print(f"{path.relative_to(ROOT)}  {path.stat().st_size} B")
 
