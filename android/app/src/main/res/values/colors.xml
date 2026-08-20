@@ -1,5 +1,8 @@
 <resources>
   <color name="splashscreen_background">#FFFFFF</color>
-  <color name="iconBackground">#E6F4FE</color>
+  <!-- Задний слой адаптивной иконки. Плоский цвет, а не картинка: под круглой,
+       квадратной и «беличьей» маской лаунчера он выглядит одинаково, и иконка
+       остаётся различимой и на светлых обоях, и на тёмных. -->
+  <color name="iconBackground">#12263A</color>
   <color name="colorPrimary">#023c69</color>
 </resources>

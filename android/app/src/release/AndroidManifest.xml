@@ -1,0 +1,12 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+  <!-- SYSTEM_ALERT_WINDOW приносит шаблон Expo: поверх чужих окон рисует
+       redbox и меню разработчика. Готовому приложению оно не нужно, а стор
+       считает разрешение «поверх других приложений» чувствительным и просит
+       его обосновать. Убираем из релиза, оставляя отладке.
+
+       Разрешение объявлено в src/main/AndroidManifest.xml, поэтому здесь
+       именно remove, а не отсутствие записи: слияние манифестов объединяет
+       варианты, а не заменяет. -->
+  <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" tools:node="remove"/>
+</manifest>

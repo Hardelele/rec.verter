@@ -81,6 +81,51 @@ def enableMinifyInReleaseBuilds = (findProperty('android.enableMinifyInReleaseBu
  */
 def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
 
+/**
+ * Версия приложения. versionName — то, что видит человек; versionCode — целое,
+ * которое стор требует увеличивать с каждой загрузкой. Держим их здесь, чтобы
+ * следующий релиз был правкой двух строк, а не поиском по файлу.
+ *
+ * versionCode можно переопределить из CI, не трогая файл:
+ *   .\gradlew.bat assembleRelease -PversionCode=2
+ */
+def appVersionName = "0.1.0"
+def appVersionCode = (findProperty('versionCode') ?: '1').toInteger()
+
+/**
+ * Слагаемое к versionCode для каждого ABI: у двух APK одного релиза не может
+ * быть одинакового кода, а стор ставит на устройство APK с наибольшим
+ * подходящим, поэтому arm64 обязан стоять выше armeabi-v7a.
+ */
+def abiVersionOffsets = ['armeabi-v7a': 1, 'arm64-v8a': 2, 'x86': 3, 'x86_64': 4]
+
+/**
+ * Какие ABI попадают в релиз. По умолчанию только живые: x86-устройств нет,
+ * а нативный код — основной вес сборки.
+ *
+ * Переопределяется ради одной задачи — прогнать релизную сборку на эмуляторе.
+ * Эмулятор x86_64, а SoLoader ищет библиотеки по Build.SUPPORTED_ABIS[0], то
+ * есть по x86_64, и ARM-трансляция ему не помогает: релиз без x86_64 падает на
+ * старте с «couldn't find DSO to load». Проверить, что R8 не сломал приложение,
+ * можно только так:
+ *
+ *   .\gradlew.bat assembleRelease -PreleaseAbis=x86_64
+ */
+def releaseAbis = ((findProperty('releaseAbis') ?: 'armeabi-v7a,arm64-v8a') as String)
+        .split(',').collect { it.trim() }.findAll { it }
+
+/**
+ * Параметры подписи релиза читаются из android/keystore.properties — файла,
+ * которого нет в git (схема — в keystore.properties.example). Нет файла —
+ * релиз собирается неподписанным, а не debug-ключом: неподписанный артефакт
+ * невозможно перепутать с публикуемым.
+ */
+def keystorePropertiesFile = rootProject.file('keystore.properties')
+def keystoreProperties = new Properties()
+if (keystorePropertiesFile.exists()) {
+    keystorePropertiesFile.withInputStream { keystoreProperties.load(it) }
+}
+
 android {
     ndkVersion rootProject.ext.ndkVersion
 
@@ -92,8 +137,8 @@ android {
         applicationId 'com.hardelele.recverter'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "0.1.0"
+        versionCode appVersionCode
+        versionName appVersionName
 
         buildConfigField "String", "REACT_NATIVE_RELEASE_LEVEL", "\"${findProperty('reactNativeReleaseLevel') ?: 'stable'}\""
     }
@@ -104,21 +149,51 @@ android {
             keyAlias 'androiddebugkey'
             keyPassword 'android'
         }
+        if (keystoreProperties['storeFile']) {
+            release {
+                storeFile rootProject.file(keystoreProperties['storeFile'])
+                storePassword keystoreProperties['storePassword']
+                keyAlias keystoreProperties['keyAlias']
+                keyPassword keystoreProperties['keyPassword']
+            }
+        }
     }
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
         }
         release {
-            // Caution! In production, you need to generate your own keystore file.
-            // see https://reactnative.dev/docs/signed-apk-android.
-            signingConfig signingConfigs.debug
-            def enableShrinkResources = findProperty('android.enableShrinkResourcesInReleaseBuilds') ?: 'false'
+            signingConfig signingConfigs.findByName('release')
+            // shrinkResources без minifyEnabled AGP не разрешает, поэтому
+            // по умолчанию он повторяет minify, а не включается сам по себе.
+            def enableShrinkResources = findProperty('android.enableShrinkResourcesInReleaseBuilds') ?: enableMinifyInReleaseBuilds.toString()
             shrinkResources enableShrinkResources.toBoolean()
             minifyEnabled enableMinifyInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
             def enablePngCrunchInRelease = findProperty('android.enablePngCrunchInReleaseBuilds') ?: 'true'
             crunchPngs enablePngCrunchInRelease.toBoolean()
+            // splits ниже фильтрует только per-ABI артефакты; в universal AGP
+            // кладёт всё, что нашлось в jniLibs. Без этого фильтра x86-эмуляторные
+            // библиотеки уезжают в релиз и дают лишние сорок мегабайт.
+            ndk {
+                abiFilters.clear()
+                abiFilters.addAll(releaseAbis)
+            }
+        }
+    }
+
+    /**
+     * Один APK на ABI вместо универсального: устройству не нужны чужие
+     * архитектуры, а нативного кода в сборке большая часть веса. x86/x86_64
+     * из релиза исключены — это эмуляторы, живых устройств на них нет.
+     * Universal остаётся отдельным файлом для ручной раздачи и отладки.
+     */
+    splits {
+        abi {
+            enable true
+            reset()
+            include(*releaseAbis.toArray(new String[0]))
+            universalApk true
         }
     }
     packagingOptions {
@@ -129,6 +204,20 @@ android {
     }
     androidResources {
         ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:!CVS:!thumbs.db:!picasa.ini:!*~'
+    }
+}
+
+/**
+ * Все APK одной сборки имеют одинаковый versionName, но versionCode обязан
+ * различаться: стор не примет два артефакта с одним кодом. Схема — базовый
+ * код умножается на 10 и к нему прибавляется номер ABI, поэтому следующий
+ * релиз (versionCode=2) даёт 20/21/22 и не пересекается с текущим 10/11/12.
+ */
+android.applicationVariants.configureEach { variant ->
+    variant.outputs.each { output ->
+        def abi = output.getFilter(com.android.build.OutputFile.ABI)
+        output.versionCodeOverride = appVersionCode * 10 + (abi == null ? 0 : abiVersionOffsets[abi])
+        output.outputFileName = "recverter-${appVersionName}-${abi ?: 'universal'}-${variant.buildType.name}.apk"
     }
 }
 

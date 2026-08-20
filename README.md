@@ -68,6 +68,55 @@ cd android
 adb install -r android\app\build\outputs\apk\debug\app-debug.apk
 ```
 
+### Релиз
+
+Подпись берётся из `android/keystore.properties` — файла, которого в
+репозитории нет. Схема полей и команда создания хранилища —
+в `android/keystore.properties.example`; скопируйте его рядом, заполните
+своими значениями и держите пароли в менеджере секретов. Без этого файла
+`assembleRelease` отработает, но выдаст неподписанный APK.
+
+```powershell
+cd android
+.\gradlew.bat assembleRelease
+```
+
+Получается три файла в `android/app/build/outputs/apk/release/`:
+
+| Файл | Для чего |
+|---|---|
+| `recverter-<версия>-arm64-v8a-release.apk` | почти все современные телефоны |
+| `recverter-<версия>-armeabi-v7a-release.apk` | старые 32-битные устройства |
+| `recverter-<версия>-universal-release.apk` | ручная раздача, когда ABI заранее неизвестен |
+
+Версия задаётся в `android/app/build.gradle` (`appVersionName`,
+`appVersionCode`). Каждый ABI получает свой `versionCode` — `код × 10 + номер
+ABI`: у стора не может быть двух артефактов с одинаковым кодом. Для очередной
+загрузки достаточно поднять `appVersionCode` на единицу, из CI его можно
+передать флагом:
+
+```powershell
+.\gradlew.bat assembleRelease -PversionCode=2
+```
+
+Релиз собирается с R8 (`android.enableMinifyInReleaseBuilds` в
+`gradle.properties`) и без x86-библиотек. Из-за этого релизная сборка не
+запускается на x86_64-эмуляторе: SoLoader ищет библиотеки по
+`Build.SUPPORTED_ABIS[0]`, и ARM-трансляция ему не помогает. Чтобы проверить на
+эмуляторе именно релиз, соберите его под архитектуру эмулятора:
+
+```powershell
+.\gradlew.bat assembleRelease -PreleaseAbis=x86_64
+```
+
+Проверки, которые имеет смысл прогнать перед публикацией:
+
+```powershell
+aapt2 dump permissions <apk>          # INTERNET быть не должно
+apksigner verify --print-certs <apk>  # ключ ваш, а не debug
+llvm-readelf -l liblamemp3.so         # все LOAD с align 0x4000
+```
+
 Метро-сервер для разработки поднимается отдельно — `npx expo start --dev-client`.
 
 Папка `android/` версионируется намеренно: в неё будет добавлен нативный модуль на

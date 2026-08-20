@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Передний слой адаптивной иконки. Геометрия — один в один из assets/icon.svg,
+  пути скопированы без пересчёта, чтобы источник и результат можно было сверить
+  глазами.
+
+  Вектор, а не пять плотностей PNG: minSdk проекта 26, а с API 26 лаунчер берёт
+  только mipmap-anydpi-v26, растровые mipmap-*dpi просто лежат мёртвым весом.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <path
+        android:pathData="M30,35 L30,73 L54,54 Z"
+        android:fillColor="#FFFFFF"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="6"
+        android:strokeLineJoin="round" />
+
+    <path
+        android:pathData="M61.79,47.11 A9,9 0 0 1 61.79,60.89"
+        android:strokeColor="#35C4F0"
+        android:strokeWidth="5"
+        android:strokeLineCap="round" />
+    <path
+        android:pathData="M67.25,40.59 A17.5,17.5 0 0 1 67.25,67.41"
+        android:strokeColor="#35C4F0"
+        android:strokeWidth="5"
+        android:strokeLineCap="round" />
+    <path
+        android:pathData="M72.71,34.08 A26,26 0 0 1 72.71,73.92"
+        android:strokeColor="#35C4F0"
+        android:strokeWidth="5"
+        android:strokeLineCap="round" />
+</vector>
