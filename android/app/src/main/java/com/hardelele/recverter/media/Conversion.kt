@@ -102,9 +102,21 @@ internal fun openSource(context: Context, source: Uri): Source {
     return Source(extractor, descriptor)
 }
 
-/** Первая аудиодорожка контейнера; остальные игнорируются намеренно. */
+/**
+ * Первая аудиодорожка контейнера; остальные игнорируются намеренно.
+ *
+ * Ноль дорожек — это не «файл без звука», а не разобранный контейнер: `setDataSource`
+ * на обрезанном mp4 (например, без moov-атома) молча отдаёт пустой экстрактор вместо
+ * исключения. Сказать про такой файл «в нём нет звуковой дорожки» — соврать, поэтому
+ * случаи разведены: пусто — [MediaErrorCode.CORRUPTED_SOURCE], разобрался, но дорожки
+ * только видео — [MediaErrorCode.NO_AUDIO_TRACK].
+ */
 internal fun firstAudioTrack(extractor: MediaExtractor): Int {
-    for (i in 0 until extractor.trackCount) {
+    val trackCount = extractor.trackCount
+    if (trackCount <= 0) {
+        throw MediaError(MediaErrorCode.CORRUPTED_SOURCE, "container exposes no tracks")
+    }
+    for (i in 0 until trackCount) {
         val mime = extractor.getTrackFormat(i).getString(MediaFormat.KEY_MIME) ?: continue
         if (mime.startsWith("audio/")) return i
     }
