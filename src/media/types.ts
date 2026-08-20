@@ -43,6 +43,8 @@ export const ERROR_CODES = [
   'NO_SPACE',
   'CANCELLED',
   'UNSUPPORTED_FORMAT',
+  /** Системный выбор файла открыть нечем — про исходник это ничего не говорит. */
+  'PICKER_UNAVAILABLE',
 ] as const;
 
 export type ErrorCode = (typeof ERROR_CODES)[number];

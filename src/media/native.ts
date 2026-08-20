@@ -19,7 +19,11 @@ type RecverterNativeModule = {
    * а не падает. Отдать файл в другое приложение из JS нечем — системный
    * Share на Android умеет только текст, а тащить зависимость ради
    * двух кнопок дороже, чем два метода в мосту.
+   *
+   * pickSource — системный выбор видео. Отмена не ошибка: мост возвращает
+   * null либо отклоняет обещание кодом CANCELLED, экран понимает оба ответа.
    */
+  pickSource?(): Promise<SharedSource | null>;
   shareResult?(path: string, mimeType: string): Promise<void>;
   openResult?(path: string, mimeType: string): Promise<void>;
   addListener?(eventName: string): void;
@@ -50,6 +54,6 @@ export function hasNativeModule(): boolean {
   return nativeModule !== undefined;
 }
 
-export function hasMethod(name: 'shareResult' | 'openResult'): boolean {
+export function hasMethod(name: 'pickSource' | 'shareResult' | 'openResult'): boolean {
   return typeof nativeModule?.[name] === 'function';
 }

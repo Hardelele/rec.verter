@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useReducer, useRef } from 'react';
+import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { PermissionsAndroid, Platform } from 'react-native';
 
 import { findFormat } from '../formats';
@@ -6,6 +6,7 @@ import {
   MediaError,
   cancel as cancelConversion,
   canOpenResult,
+  canPickSource,
   canShareResult,
   convert,
   getInitialShare,
@@ -14,6 +15,7 @@ import {
   onProgress,
   onShare,
   openResult,
+  pickSource,
   shareResult,
   toMediaError,
   type ConvertOptions,
@@ -28,8 +30,14 @@ import { initialState, reducer, type ScreenState } from './state';
 
 export type Converter = {
   state: ScreenState;
+  /** Пикер есть в сборке: без него кнопка выбора не показывается. */
+  canPick: boolean;
+  /** Пикер открыт — второе нажатие ничего не даст. */
+  picking: boolean;
   canShare: boolean;
   canOpen: boolean;
+  /** Открыть системный выбор видео. */
+  pick: () => void;
   selectFormat: (format: FormatId) => void;
   start: () => void;
   requestCancel: () => void;
@@ -70,6 +78,9 @@ async function ensureStorageAccess(): Promise<void> {
 
 export function useConverter(): Converter {
   const [state, dispatch] = useReducer(reducer, initialState);
+  // Открытый пикер — не состояние конвертации, а положение системного окна
+  // поверх экрана: в конечный автомат ему незачем.
+  const [picking, setPicking] = useState(false);
 
   // Действия читают актуальное состояние отсюда: иначе колбэки пришлось бы
   // пересоздавать на каждый тик прогресса.
@@ -78,6 +89,9 @@ export function useConverter(): Converter {
 
   // Номер запуска: результат отменённой конвертации не должен перебить экран.
   const runRef = useRef(0);
+
+  // Защёлка от второго нажатия, пока системный пикер уже открывается.
+  const pickingRef = useRef(false);
 
   useEffect(() => {
     if (!isAvailable()) {
@@ -117,6 +131,27 @@ export function useConverter(): Converter {
         : { type: 'failed', message: error.humanMessage },
     );
   }, []);
+
+  const pick = useCallback(() => {
+    if (pickingRef.current) {
+      return;
+    }
+    pickingRef.current = true;
+    setPicking(true);
+    pickSource()
+      .then((source) => {
+        // null — человек закрыл пикер. Экран остаётся как был, без красной
+        // плашки: отменённый выбор ничего не сломал.
+        if (source) {
+          dispatch({ type: 'source-received', source });
+        }
+      })
+      .catch(fail)
+      .finally(() => {
+        pickingRef.current = false;
+        setPicking(false);
+      });
+  }, [fail]);
 
   const selectFormat = useCallback((format: FormatId) => {
     dispatch({ type: 'format-selected', format });
@@ -175,8 +210,11 @@ export function useConverter(): Converter {
 
   return {
     state,
+    canPick: canPickSource(),
+    picking,
     canShare: canShareResult(),
     canOpen: canOpenResult(),
+    pick,
     selectFormat,
     start,
     requestCancel,

@@ -36,6 +36,14 @@ export function isAvailable(): boolean {
   return hasNativeModule();
 }
 
+/**
+ * Пикер живёт в нативном модуле и появился позже остального моста, поэтому
+ * метод необязательный: на старой сборке кнопка выбора просто не показывается.
+ */
+export function canPickSource(): boolean {
+  return hasMethod('pickSource');
+}
+
 export function canShareResult(): boolean {
   return hasMethod('shareResult');
 }
@@ -122,6 +130,29 @@ export function onShare(listener: (source: SharedSource) => void): Unsubscribe {
     }
   });
   return subscription ? () => subscription.remove() : NOOP;
+}
+
+function asSharedSource(payload: unknown): SharedSource | null {
+  return payload && typeof payload === 'object' && typeof (payload as SharedSource).uri === 'string'
+    ? (payload as SharedSource)
+    : null;
+}
+
+/**
+ * Системный выбор видео. Возвращает null, если человек закрыл пикер: отмена —
+ * это решение пользователя, а не сбой, и наверх она уходит значением, а не
+ * исключением. Метода нет в сборке — тоже null, кнопку туда не покажут.
+ */
+export async function pickSource(): Promise<SharedSource | null> {
+  try {
+    return asSharedSource(await requireModule().pickSource?.());
+  } catch (cause) {
+    const error = toMediaError(cause);
+    if (isCancellation(error)) {
+      return null;
+    }
+    throw error;
+  }
 }
 
 export async function shareResult(result: ConvertResult): Promise<void> {

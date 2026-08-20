@@ -83,7 +83,9 @@ function Step({ index, text }: { index: number; text: string }) {
     <View style={{ flexDirection: 'row', gap: theme.space(1.5), alignItems: 'flex-start' }}>
       <Text
         style={{
-          color: theme.color.accent,
+          // Номера шагов приглушены намеренно: акцентный цвет на экране один,
+          // и он принадлежит кнопке выбора видео.
+          color: theme.color.muted,
           fontFamily: theme.font.mono,
           fontSize: 15,
           fontWeight: '700',
@@ -99,10 +101,41 @@ function Step({ index, text }: { index: number; text: string }) {
   );
 }
 
+/**
+ * Путь через «Поделиться» никуда не делся: когда видео уже открыто в галерее
+ * или в мессенджере, отдать его оттуда быстрее, чем искать в пикере. Поэтому
+ * подсказка остаётся — но советом рядом с главным действием, а не вместо него.
+ */
+function ShareHint({ lead, muted }: { lead: string; muted: boolean }) {
+  const theme = useTheme();
+  return (
+    <Card>
+      <Body tone={muted ? 'muted' : undefined}>{lead}</Body>
+      <View style={{ gap: theme.space(1), marginTop: theme.space(0.5) }}>
+        <Step index={1} text="Откройте видео в галерее, Telegram или файлах." />
+        <Step index={2} text="Нажмите «Поделиться»." />
+        <Step index={3} text="Выберите rec.verter в списке приложений." />
+      </View>
+    </Card>
+  );
+}
+
 export function Screen() {
   const theme = useTheme();
-  const { state, canShare, canOpen, selectFormat, start, requestCancel, share, open, retry } =
-    useConverter();
+  const {
+    state,
+    canPick,
+    picking,
+    canShare,
+    canOpen,
+    pick,
+    selectFormat,
+    start,
+    requestCancel,
+    share,
+    open,
+    retry,
+  } = useConverter();
 
   return (
     <ScrollView
@@ -130,14 +163,30 @@ export function Screen() {
 
       {state.kind === 'empty' && (
         <>
-          <Card>
-            <Body>Пришлите видео в приложение — звук вернётся файлом.</Body>
-            <View style={{ gap: theme.space(1), marginTop: theme.space(0.5) }}>
-              <Step index={1} text="Откройте видео в галерее, Telegram или файлах." />
-              <Step index={2} text="Нажмите «Поделиться»." />
-              <Step index={3} text="Выберите rec.verter в списке приложений." />
-            </View>
-          </Card>
+          {/*
+            Главное действие — одно, и оно первое на экране. Пикер живёт в
+            нативном модуле и появился позже остального моста: в старой сборке
+            метода нет, и тогда экран честно остаётся инструкцией про
+            «Поделиться», а не показывает кнопку, которой нечем ответить.
+          */}
+          {canPick && (
+            <Button
+              label={picking ? 'Открываем галерею…' : 'Выбрать видео'}
+              onPress={pick}
+              disabled={picking}
+              hint="Откроется системный выбор файла"
+            />
+          )}
+
+          <ShareHint
+            muted={canPick}
+            lead={
+              canPick
+                ? 'Видео уже открыто в галерее или мессенджере? Оттуда быстрее — через «Поделиться».'
+                : 'Пришлите видео в приложение — звук вернётся файлом.'
+            }
+          />
+
           <Body tone="muted">
             Разрешения на интернет у приложения нет вообще, поэтому отправить файл куда-либо оно не
             может физически.
